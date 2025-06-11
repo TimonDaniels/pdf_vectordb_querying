@@ -113,7 +113,7 @@ class PDFProcessor:
                 chunk.metadata["filename"] = "Unknown"
             if "source" not in chunk.metadata:
                 chunk.metadata["source"] = "Unknown"
-            print(f"Created {len(chunked_docs)} chunks from {len(documents)} documents")
+        print(f"Created {len(chunked_docs)} chunks from {len(documents)} documents")
         return chunked_docs
 
     def create_vector_database(self, documents: List[Document]) -> Chroma:
