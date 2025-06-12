@@ -50,7 +50,7 @@ def example_usage():
     for query in example_queries:
         print(f"\nQuery: '{query}'")
         print("-" * 40)
-          results = processor.search_with_model(query, model_to_use, k=2)
+        results = processor.search_with_model(query, model_to_use, k=2)
         for i, result in enumerate(results, 1):
             print(f"{i}. {result['document']}: {result['content'][:100]}...")
             print(f"   (Score: {result['similarity_score']:.3f}, Model: {result['embedding_model']})")
@@ -96,10 +96,10 @@ def search_interactive():
                     print("Invalid choice. Please try again.")
         except ValueError:
             print("Invalid input. Please enter a number.")
-      print(f"\nUsing model: {selected_model}")
+    print(f"\nUsing model: {selected_model}")
     print("Enter your search queries to find relevant content in the documents.")
     print("Type 'quit' to exit.\n")
-      while True:
+    while True:
         query = input("Your query: ").strip()
         
         if query.lower() in ['quit', 'exit', 'q']:
@@ -153,7 +153,7 @@ def model_comparison_demo():
         if model in processor.get_available_databases():
             print(f"\nResults from {model}:")
             results = processor.search_with_model(test_query, model, k=2)
-              for i, result in enumerate(results, 1):
+            for i, result in enumerate(results, 1):
                 print(f"  {i}. {result['document']} (score: {result['similarity_score']:.3f})")
                 print(f"     {result['content'][:100]}...")
         else:

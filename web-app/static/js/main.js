@@ -7,9 +7,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const loadingDiv = document.getElementById('loading');
     const resultsSection = document.getElementById('results-section');
     const resultsContainer = document.getElementById('results-container');
-    const searchInfo = document.getElementById('search-info');
+    const clearResultsBtn = document.getElementById('clear-results-btn');
     const errorMessage = document.getElementById('error-message');
     const modelStatus = document.getElementById('model-status');
+
+    // Counter for search results
+    let searchCounter = 0;
 
     // Event listeners
     searchBtn.addEventListener('click', performSearch);
@@ -21,6 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     modelSelect.addEventListener('change', updateModelStatus);
+    clearResultsBtn.addEventListener('click', clearAllResults);
 
     // Auto-focus on query input
     queryInput.focus();
@@ -46,10 +50,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Clear previous results, errors, and progress messages
+        // Clear previous errors and progress messages (but keep results)
         hideError();
         hideProgress();
-        hideResults();
         showLoading();
         
         // Disable search button
@@ -97,19 +100,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function displayResults(data) {
         const { query, model, results } = data;
+        
+        // Increment search counter
+        searchCounter++;
 
-        // Update search info
+        // Create a new search result set container
+        const searchResultSet = document.createElement('div');
+        searchResultSet.className = 'search-result-set';
+        searchResultSet.id = `search-${searchCounter}`;
+
+        // Create search info header
+        const searchInfo = document.createElement('div');
+        searchInfo.className = 'search-info';
+        const timestamp = new Date().toLocaleTimeString();
         searchInfo.innerHTML = `
-            <strong>Query:</strong> "${query}" | 
-            <strong>Model:</strong> ${model} | 
-            <strong>Results:</strong> ${results.length}
+            <div class="search-info-content">
+                <strong>Query:</strong> "${escapeHtml(query)}" | 
+                <strong>Model:</strong> ${escapeHtml(model)} | 
+                <strong>Results:</strong> ${results.length} | 
+                <strong>Time:</strong> ${timestamp}
+            </div>
+            <button class="btn btn-small btn-remove" onclick="removeSearchResult('${searchResultSet.id}')">
+                Remove
+            </button>
         `;
 
-        // Clear previous results
-        resultsContainer.innerHTML = '';
+        // Create results container for this search
+        const searchResults = document.createElement('div');
+        searchResults.className = 'search-results';
 
         if (results.length === 0) {
-            resultsContainer.innerHTML = `
+            searchResults.innerHTML = `
                 <div class="result-item">
                     <p style="text-align: center; color: #7f8c8d; font-style: italic;">
                         No relevant content found for your query.
@@ -120,9 +141,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Display each result
             results.forEach(result => {
                 const resultElement = createResultElement(result);
-                resultsContainer.appendChild(resultElement);
+                searchResults.appendChild(resultElement);
             });
         }
+
+        // Assemble the search result set
+        searchResultSet.appendChild(searchInfo);
+        searchResultSet.appendChild(searchResults);
+
+        // Insert at the top of results container (newest first)
+        resultsContainer.insertBefore(searchResultSet, resultsContainer.firstChild);
 
         showResults();
     }
@@ -248,6 +276,25 @@ document.addEventListener('DOMContentLoaded', function() {
     function hideResults() {
         resultsSection.classList.add('hidden');
     }
+
+    function clearAllResults() {
+        resultsContainer.innerHTML = '';
+        searchCounter = 0;
+        hideResults();
+    }
+
+    // Global function to remove individual search results
+    window.removeSearchResult = function(searchId) {
+        const searchElement = document.getElementById(searchId);
+        if (searchElement) {
+            searchElement.remove();
+            
+            // Hide results section if no more results
+            if (resultsContainer.children.length === 0) {
+                hideResults();
+            }
+        }
+    };
 
     function showError(message) {
         errorMessage.textContent = message;

@@ -10,13 +10,16 @@ import threading
 import time
 
 # Add parent directory to path to import pdf_processor
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
 from pdf_processor import PDFProcessor
 
 app = Flask(__name__)
 
-# Initialize the processor globally
-processor = PDFProcessor()
+# Initialize the processor globally with correct paths
+data_dir = os.path.join(parent_dir, "data")
+chroma_db_dir = os.path.join(parent_dir, "chroma_db")
+processor = PDFProcessor(pdf_directory=data_dir, base_db_directory=chroma_db_dir)
 
 # Track database creation status
 database_creation_status = {}
