@@ -1,35 +1,143 @@
 """
 PDF Text Extraction and Vector Database System
 Extract text from PDFs, chunk them, and store in ChromaDB for semantic search.
+Supports multiple embedding models with separate databases.
 """
 
 import os
 import glob
+import json
 from typing import List, Dict, Optional
+from datetime import datetime
 import PyPDF2
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma.vectorstores import Chroma
-from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain_community.embeddings import SentenceTransformerEmbeddings, OpenAIEmbeddings, HuggingFaceEmbeddings
 from langchain.schema import Document
+from dotenv import load_dotenv
+
+# Load environment variables from .env.local file
+load_dotenv('.env.local')
 
 
 class PDFProcessor:
-    def __init__(self, pdf_directory: str = "programma-2023", db_directory: str = "chroma_db"):
+    """
+    PDF processor with support for multiple embedding models and databases.
+    """
+    
+    # Supported embedding models
+    SUPPORTED_EMBEDDINGS = {
+        "huggingface_minilm": {
+            "class": HuggingFaceEmbeddings,
+            "kwargs": {"model_name": "all-MiniLM-L6-v2"}
+        },
+        "huggingface_mpnet": {
+            "class": HuggingFaceEmbeddings,
+            "kwargs": {"model_name": "all-mpnet-base-v2"}
+        },
+        "openai": {
+            "class": OpenAIEmbeddings,
+            "kwargs": {}
+        },
+        "sentence_transformer": {
+            "class": SentenceTransformerEmbeddings,
+            "kwargs": {"model_name": "all-MiniLM-L6-v2"}
+        }
+    }
+
+    def __init__(self, pdf_directory: str = "programma-2023", base_db_directory: str = "chroma_db"):
         """
         Initialize the PDF processor.
         
         Args:
             pdf_directory: Directory containing PDF files
-            db_directory: Directory to store ChromaDB database
+            base_db_directory: Base directory to store multiple ChromaDB databases
         """
         self.pdf_directory = pdf_directory
-        self.db_directory = db_directory
-        self.embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+        self.base_db_directory = base_db_directory
+        self.current_embedding_model = None
+        self.current_embeddings = None
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            length_function=len,
+            chunk_size=2000,
+            chunk_overlap=400,
+            length_function=len
         )
+        
+    def set_embedding_model(self, model_name: str):
+        """
+        Set the current embedding model.
+        
+        Args:
+            model_name: Name of the embedding model from SUPPORTED_EMBEDDINGS
+        """
+        if model_name not in self.SUPPORTED_EMBEDDINGS:
+            available_models = list(self.SUPPORTED_EMBEDDINGS.keys())
+            raise ValueError(f"Unsupported embedding model: {model_name}. Available models: {available_models}")
+        
+        self.current_embedding_model = model_name
+        model_config = self.SUPPORTED_EMBEDDINGS[model_name]
+        self.current_embeddings = model_config["class"](**model_config["kwargs"])
+        print(f"Set embedding model to: {model_name}")
+    
+    def get_database_directory(self, model_name: str) -> str:
+        """Get the database directory for a specific embedding model."""
+        return os.path.join(self.base_db_directory, model_name)
+    
+    def get_available_databases(self) -> List[str]:
+        """
+        Get list of available databases (by embedding model).
+        
+        Returns:
+            List of embedding model names that have databases
+        """
+        if not os.path.exists(self.base_db_directory):
+            return []
+        
+        available = []
+        for model_name in self.SUPPORTED_EMBEDDINGS.keys():
+            db_dir = self.get_database_directory(model_name)
+            if os.path.exists(db_dir) and os.path.exists(os.path.join(db_dir, "chroma.sqlite3")):
+                available.append(model_name)
+        
+        return available
+    
+    def get_database_info(self, model_name: str) -> Optional[Dict]:
+        """
+        Get metadata information about a specific database.
+        
+        Args:
+            model_name: Name of the embedding model
+            
+        Returns:
+            Dictionary with database metadata or None if not found
+        """
+        db_dir = self.get_database_directory(model_name)
+        metadata_file = os.path.join(db_dir, "metadata.json")
+        
+        if os.path.exists(metadata_file):
+            try:
+                with open(metadata_file, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Error reading metadata for {model_name}: {e}")
+        
+        return None
+    
+    def save_database_metadata(self, model_name: str, document_count: int):
+        """Save metadata about the database."""
+        db_dir = self.get_database_directory(model_name)
+        metadata = {
+            "embedding_model": model_name,
+            "created_at": datetime.now().isoformat(),
+            "document_count": document_count,
+            "pdf_directory": self.pdf_directory
+        }
+        
+        metadata_file = os.path.join(db_dir, "metadata.json")
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+        
+        print(f"Saved metadata for {model_name} database")
         
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """
@@ -112,109 +220,37 @@ class PDFProcessor:
             if "filename" not in chunk.metadata:
                 chunk.metadata["filename"] = "Unknown"
             if "source" not in chunk.metadata:
-                chunk.metadata["source"] = "Unknown"
+                chunk.metadata["source"] = "Unknown"        
         print(f"Created {len(chunked_docs)} chunks from {len(documents)} documents")
         return chunked_docs
 
-    def create_vector_database(self, documents: List[Document]) -> Chroma:
+    def create_database_with_model(self, model_name: str, force_recreate: bool = False) -> Optional[Chroma]:
         """
-        Create ChromaDB vector database from documents.
+        Create ChromaDB vector database with a specific embedding model.
         
         Args:
-            documents: List of Document objects
+            model_name: Name of the embedding model to use
+            force_recreate: Whether to recreate if database already exists
             
         Returns:
-            ChromaDB vector store
+            ChromaDB vector store or None if creation fails
         """
-        print("Creating vector database...")
-        print(f"Processing {len(documents)} documents...")
-        
-        # Create the database directory if it doesn't exist
-        os.makedirs(self.db_directory, exist_ok=True)
-        
-        try:
-            # Reset database if it exists to avoid conflicts
-            if os.path.exists(self.db_directory):
-                import shutil
-                print("Removing existing database directory to avoid conflicts...")
-                shutil.rmtree(self.db_directory)
-                os.makedirs(self.db_directory, exist_ok=True)
-            
-            print("Initializing ChromaDB...")
-            # Process documents in smaller batches to avoid memory issues
-            batch_size = 50
-            vectorstore = None
-
-            for i in range(0, len(documents), batch_size):
-                batch = documents[i:i + batch_size]
-                print(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1} ({len(batch)} documents)...")
-                
-                if vectorstore is None:
-                    # Create initial vector store with first batch
-                    print("Creating initial vector store...")
-                    vectorstore = Chroma.from_documents(
-                        documents=batch,
-                        embedding=self.embeddings,
-                        persist_directory=self.db_directory,
-                        collection_name="political_programs"
-                    )
-                    print(f"Initial vector store created with {len(batch)} documents")
-                else:
-                    # Add subsequent batches to existing store
-                    print(f"Adding batch to existing vector store...")
-                    vectorstore.add_documents(batch)
-                    print(f"Added {len(batch)} documents to vector store")
-
-            print(f"Vector database created successfully with {len(documents)} total documents")
-            return vectorstore
-            
-        except Exception as e:
-            print(f"Error creating vector database: {e}")
-            print(f"Error type: {type(e).__name__}")
-            import traceback
-            traceback.print_exc()
-            raise
-
-    def load_existing_database(self) -> Optional[Chroma]:
-        """
-        Load existing ChromaDB database.
-        
-        Returns:
-            ChromaDB vector store or None if loading fails
-        """
-        try:
-            # Check if database directory exists
-            if not os.path.exists(self.db_directory):
-                print(f"Database directory '{self.db_directory}' does not exist.")
-                return None
-            
-            vectorstore = Chroma(
-                persist_directory=self.db_directory,
-                embedding_function=self.embeddings,
-                collection_name="political_programs"
-            )
-            
-            # Test the connection by trying a simple operation
-            try:
-                vectorstore.similarity_search("test", k=1)
-            except Exception as test_e:
-                print(f"Database connection test failed: {test_e}")
-                return None
-                
-            return vectorstore
-            
-        except Exception as e:
-            print(f"Error loading existing database: {e}")
-            print(f"Error type: {type(e).__name__}")
-            import traceback
-            traceback.print_exc()
+        if model_name not in self.SUPPORTED_EMBEDDINGS:
+            available_models = list(self.SUPPORTED_EMBEDDINGS.keys())
+            print(f"Unsupported embedding model: {model_name}. Available: {available_models}")
             return None
-
-    def process_pdfs_and_create_db(self):
-        """
-        Complete pipeline: extract, chunk, and store PDFs in vector database.
-        """
-        print("Starting PDF processing pipeline...")
+        
+        # Set the embedding model
+        self.set_embedding_model(model_name)
+        
+        db_dir = self.get_database_directory(model_name)
+        
+        # Check if database already exists
+        if os.path.exists(db_dir) and not force_recreate:
+            print(f"Database for {model_name} already exists. Use force_recreate=True to overwrite.")
+            return self.load_database_by_model(model_name)
+        
+        print(f"Creating database with {model_name} embedding model...")
         
         try:
             # Step 1: Extract text from all PDFs
@@ -228,22 +264,107 @@ class PDFProcessor:
             chunked_docs = self.chunk_documents(documents)
             
             # Step 3: Create vector database
-            vectorstore = self.create_vector_database(chunked_docs)
+            print(f"Creating vector database in {db_dir}...")
             
-            print("Pipeline completed successfully!")
+            # Remove existing database if force_recreate
+            if os.path.exists(db_dir) and force_recreate:
+                import shutil
+                print("Removing existing database to recreate...")
+                shutil.rmtree(db_dir)
+            
+            # Create the database directory
+            os.makedirs(db_dir, exist_ok=True)
+            
+            # Process documents in batches
+            batch_size = 500
+            vectorstore = None
+
+            for i in range(0, len(chunked_docs), batch_size):
+                batch = chunked_docs[i:i + batch_size]
+                print(f"Processing batch {i//batch_size + 1}/{(len(chunked_docs)-1)//batch_size + 1} ({len(batch)} documents)...")
+                
+                if vectorstore is None:
+                    vectorstore = Chroma.from_documents(
+                        documents=batch,
+                        embedding=self.current_embeddings,
+                        persist_directory=db_dir,
+                        collection_name="political_programs"
+                    )
+                    print(f"Initial vector store created with {len(batch)} documents")
+                else:
+                    vectorstore.add_documents(batch)
+                    print(f"Added {len(batch)} documents to vector store")
+
+            # Save metadata
+            self.save_database_metadata(model_name, len(chunked_docs))
+            
+            print(f"Database created successfully for {model_name} with {len(chunked_docs)} total documents")
             return vectorstore
+            
         except Exception as e:
-            print(f"Error in pipeline: {e}")
-            print(f"Error type: {type(e).__name__}")
+            print(f"Error creating database for {model_name}: {e}")
             import traceback
             traceback.print_exc()
             return None
-
-    def search_similar_content(self, query: str, k: int = 5, filter: Optional[Dict[str, str]] = None) -> List[Dict]:
+            
+    def load_database_by_model(self, model_name: str) -> Optional[Chroma]:
+        """
+        Load existing ChromaDB database for a specific embedding model.
+        
+        Args:
+            model_name: Name of the embedding model
+            
+        Returns:
+            ChromaDB vector store or None if loading fails
+        """
+        if model_name not in self.SUPPORTED_EMBEDDINGS:
+            available_models = list(self.SUPPORTED_EMBEDDINGS.keys())
+            print(f"Unsupported embedding model: {model_name}. Available: {available_models}")
+            return None
+        
+        db_dir = self.get_database_directory(model_name)
+        
+        if not os.path.exists(db_dir):
+            print(f"Database directory for {model_name} does not exist: {db_dir}")
+            return None
+        
+        # Set the embedding model
+        self.set_embedding_model(model_name)
+        
         try:
-            vectorstore = self.load_existing_database()
+            vectorstore = Chroma(
+                persist_directory=db_dir,
+                embedding_function=self.current_embeddings,
+                collection_name="political_programs"
+            )
+            
+            # Test the connection
+            vectorstore.similarity_search("test", k=1)
+            print(f"Successfully loaded database for {model_name}")
+            return vectorstore
+            
+        except Exception as e:
+            print(f"Error loading database for {model_name}: {e}")
+            return None
+    
+    
+    def search_with_model(self, query: str, model_name: str, k: int = 5, filter: Optional[Dict[str, str]] = None) -> List[Dict]:
+        """
+        Search using a specific embedding model's database.
+        
+        Args:
+            query: Search query
+            model_name: Name of the embedding model to use
+            k: Number of results to return
+            filter: Optional metadata filter
+            
+        Returns:
+            List of search results
+        """
+        try:
+            vectorstore = self.load_database_by_model(model_name)
             if vectorstore is None:
-                print("Could not load database. Try recreating it by running the full pipeline.")
+                print(f"Could not load database for {model_name}")
                 return []
                 
             results = vectorstore.similarity_search_with_score(query, k=k, filter=filter)
@@ -256,26 +377,62 @@ class PDFProcessor:
                     "filename": doc.metadata.get("filename", "Unknown"),
                     "source": doc.metadata.get("source", "Unknown"),
                     "chunk_id": doc.metadata.get("chunk_id", "Unknown"),
-                    "similarity_score": score
+                    "similarity_score": score,
+                    "embedding_model": model_name
                 })
             
             return formatted_results
         
         except Exception as e:
-            print(f"Error searching database: {e}")
-            print(f"Error type: {type(e).__name__}")
-            import traceback
-            traceback.print_exc()
+            print(f"Error searching with {model_name}: {e}")
             return []
-    
-    def reset_database(self):
+
+    def list_databases_info(self):
+        """Print information about all available databases."""
+        available = self.get_available_databases()
+        
+        if not available:
+            print("No databases found.")
+            return
+        
+        print(f"Available databases ({len(available)}):")
+        print("-" * 50)
+        
+        for model_name in available:
+            info = self.get_database_info(model_name)
+            if info:
+                print(f"Model: {model_name}")
+                print(f"  Created: {info.get('created_at', 'Unknown')}")
+                print(f"  Documents: {info.get('document_count', 'Unknown')}")
+                print(f"  PDF Directory: {info.get('pdf_directory', 'Unknown')}")
+                print()
+            else:
+                print(f"Model: {model_name} (no metadata available)")
+                print()
+
+    def reset_database(self, model_name: Optional[str] = None):
         """
-        Reset the database by removing the existing directory and recreating it.
+        Reset database(s) by removing the directory.
+        
+        Args:
+            model_name: Specific model to reset, or None to reset all
         """
         import shutil
         
-        if os.path.exists(self.db_directory):
-            print(f"Removing existing database directory: {self.db_directory}")
-            shutil.rmtree(self.db_directory)
-        
-        print("Database reset complete. Run process_pdfs_and_create_db() to recreate.")
+        if model_name:
+            # Reset specific model database
+            db_dir = self.get_database_directory(model_name)
+            if os.path.exists(db_dir):
+                print(f"Removing database for {model_name}: {db_dir}")
+                shutil.rmtree(db_dir)
+                print(f"Database for {model_name} reset complete.")
+            else:
+                print(f"No database found for {model_name}")
+        else:
+            # Reset all databases
+            if os.path.exists(self.base_db_directory):
+                print(f"Removing all databases: {self.base_db_directory}")
+                shutil.rmtree(self.base_db_directory)
+                print("All databases reset complete.")
+            else:
+                print("No databases found to reset.")

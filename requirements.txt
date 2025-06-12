@@ -1,8 +1,11 @@
 langchain
 langchain-community
 langchain-chroma
+langchain-openai
 pypdf2
 chromadb
 openai
 sentence-transformers
 pycryptodome
+python-dotenv
+tiktoken
