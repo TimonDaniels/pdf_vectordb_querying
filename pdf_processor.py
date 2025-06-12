@@ -1,7 +1,7 @@
 """
-PDF Text Extraction and Vector Database System
+PDF Text Extraction and Vector Database System with Caching
 Extract text from PDFs, chunk them, and store in ChromaDB for semantic search.
-Supports multiple embedding models with separate databases.
+Supports multiple embedding models with separate databases and caching for better performance.
 """
 
 import os
@@ -23,6 +23,7 @@ load_dotenv('.env.local')
 class PDFProcessor:
     """
     PDF processor with support for multiple embedding models and databases.
+    Includes caching for better performance when switching between models.
     """
     
     # Supported embedding models
@@ -63,6 +64,15 @@ class PDFProcessor:
             length_function=len
         )
         
+        # Cache for loaded databases and embedding models
+        self._vectorstore_cache = {}  # model_name -> Chroma vectorstore
+        self._embedding_cache = {}    # model_name -> embedding instance
+        self._cache_stats = {         # Track cache usage
+            'hits': 0,
+            'misses': 0,
+            'loaded_models': []
+        }
+        
     def set_embedding_model(self, model_name: str):
         """
         Set the current embedding model.
@@ -75,9 +85,69 @@ class PDFProcessor:
             raise ValueError(f"Unsupported embedding model: {model_name}. Available models: {available_models}")
         
         self.current_embedding_model = model_name
-        model_config = self.SUPPORTED_EMBEDDINGS[model_name]
-        self.current_embeddings = model_config["class"](**model_config["kwargs"])
+        self.current_embeddings = self.get_cached_embedding(model_name)
         print(f"Set embedding model to: {model_name}")
+    
+    def get_cached_embedding(self, model_name: str):
+        """
+        Get cached embedding model or create and cache it.
+        
+        Args:
+            model_name: Name of the embedding model
+            
+        Returns:
+            Embedding instance
+        """
+        if model_name in self._embedding_cache:
+            print(f"Using cached embedding for {model_name}")
+            self._cache_stats['hits'] += 1
+            return self._embedding_cache[model_name]
+        
+        if model_name not in self.SUPPORTED_EMBEDDINGS:
+            available_models = list(self.SUPPORTED_EMBEDDINGS.keys())
+            raise ValueError(f"Unsupported embedding model: {model_name}. Available models: {available_models}")
+        
+        print(f"Loading and caching embedding model: {model_name}")
+        self._cache_stats['misses'] += 1
+        model_config = self.SUPPORTED_EMBEDDINGS[model_name]
+        embedding = model_config["class"](**model_config["kwargs"])
+        
+        # Cache the embedding
+        self._embedding_cache[model_name] = embedding
+        if model_name not in self._cache_stats['loaded_models']:
+            self._cache_stats['loaded_models'].append(model_name)
+        
+        return embedding
+    
+    def get_cache_stats(self) -> Dict:
+        """Get cache statistics."""
+        return {
+            **self._cache_stats,
+            'cached_vectorstores': list(self._vectorstore_cache.keys()),
+            'cached_embeddings': list(self._embedding_cache.keys())
+        }
+    
+    def clear_cache(self, model_name: str = None):
+        """
+        Clear cache for specific model or all models.
+        
+        Args:
+            model_name: Specific model to clear, or None to clear all
+        """
+        if model_name:
+            if model_name in self._vectorstore_cache:
+                del self._vectorstore_cache[model_name]
+                print(f"Cleared vectorstore cache for {model_name}")
+            if model_name in self._embedding_cache:
+                del self._embedding_cache[model_name]
+                print(f"Cleared embedding cache for {model_name}")
+            if model_name in self._cache_stats['loaded_models']:
+                self._cache_stats['loaded_models'].remove(model_name)
+        else:
+            self._vectorstore_cache.clear()
+            self._embedding_cache.clear()
+            self._cache_stats['loaded_models'].clear()
+            print("Cleared all caches")
     
     def get_database_directory(self, model_name: str) -> str:
         """Get the database directory for a specific embedding model."""
@@ -298,6 +368,9 @@ class PDFProcessor:
             # Save metadata
             self.save_database_metadata(model_name, len(chunked_docs))
             
+            # Cache the vectorstore for future use
+            self._vectorstore_cache[model_name] = vectorstore
+            
             print(f"Database created successfully for {model_name} with {len(chunked_docs)} total documents")
             return vectorstore
             
@@ -310,6 +383,7 @@ class PDFProcessor:
     def load_database_by_model(self, model_name: str) -> Optional[Chroma]:
         """
         Load existing ChromaDB database for a specific embedding model.
+        Uses caching to avoid reloading the same database multiple times.
         
         Args:
             model_name: Name of the embedding model
@@ -322,25 +396,38 @@ class PDFProcessor:
             print(f"Unsupported embedding model: {model_name}. Available: {available_models}")
             return None
         
+        # Check cache first
+        if model_name in self._vectorstore_cache:
+            print(f"Using cached vectorstore for {model_name}")
+            self._cache_stats['hits'] += 1
+            return self._vectorstore_cache[model_name]
+        
+        self._cache_stats['misses'] += 1
+        
         db_dir = self.get_database_directory(model_name)
         
         if not os.path.exists(db_dir):
             print(f"Database directory for {model_name} does not exist: {db_dir}")
             return None
         
-        # Set the embedding model
-        self.set_embedding_model(model_name)
+        # Get the embedding model (cached)
+        embedding = self.get_cached_embedding(model_name)
         
         try:
+            print(f"Loading database for {model_name}...")
             vectorstore = Chroma(
                 persist_directory=db_dir,
-                embedding_function=self.current_embeddings,
+                embedding_function=embedding,
                 collection_name="political_programs"
             )
             
             # Test the connection
             vectorstore.similarity_search("test", k=1)
-            print(f"Successfully loaded database for {model_name}")
+            
+            # Cache the vectorstore for future use
+            self._vectorstore_cache[model_name] = vectorstore
+            
+            print(f"Successfully loaded and cached database for {model_name}")
             return vectorstore
             
         except Exception as e:
@@ -351,6 +438,7 @@ class PDFProcessor:
     def search_with_model(self, query: str, model_name: str, k: int = 5, filter: Optional[Dict[str, str]] = None) -> List[Dict]:
         """
         Search using a specific embedding model's database.
+        Uses cached vectorstore for better performance.
         
         Args:
             query: Search query
@@ -413,6 +501,7 @@ class PDFProcessor:
     def reset_database(self, model_name: Optional[str] = None):
         """
         Reset database(s) by removing the directory.
+        Also clears cache for the reset databases.
         
         Args:
             model_name: Specific model to reset, or None to reset all
@@ -428,6 +517,9 @@ class PDFProcessor:
                 print(f"Database for {model_name} reset complete.")
             else:
                 print(f"No database found for {model_name}")
+            
+            # Clear cache for this model
+            self.clear_cache(model_name)
         else:
             # Reset all databases
             if os.path.exists(self.base_db_directory):
@@ -436,3 +528,6 @@ class PDFProcessor:
                 print("All databases reset complete.")
             else:
                 print("No databases found to reset.")
+            
+            # Clear all caches
+            self.clear_cache()

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Search Interface</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PDF search</h1>
+            <p>Search through pdf documents using chroma with different embedding models</p>
+        </header>
+
+        <main>
+            <div class="search-section">
+                <div class="form-group">
+                    <label for="model-select">Select Database/Model:</label>
+                    <select id="model-select" class="form-control">
+                        {% if model_info %}
+                            {% for model in model_info %}
+                                <option value="{{ model.name }}" data-status="{{ model.status }}">
+                                    {{ model.name }} 
+                                    {% if model.status == 'loaded' %}
+                                        🚀 Loaded
+                                    {% elif model.status == 'available' %}
+                                        ✓ Available
+                                    {% elif model.status == 'creating' %}
+                                        ⏳ Creating...
+                                    {% elif model.status == 'failed' %}
+                                        ✗ Failed
+                                    {% else %}
+                                        (Not created)
+                                    {% endif %}
+                                </option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="">No models available</option>
+                        {% endif %}
+                    </select>
+                    <div id="model-status" class="model-status"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="query-input">Your Question:</label>
+                    <textarea id="query-input" class="form-control" 
+                              placeholder="Enter your question or opinion to find relevant political positions..."
+                              rows="3"></textarea>
+                </div>
+
+                <button id="search-btn" class="btn btn-primary">Search</button>
+            </div>
+
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Searching...</p>
+            </div>
+
+            <div id="results-section" class="results-section hidden">
+                <div class="results-header">
+                    <h2>Search Results</h2>
+                    <div id="search-info"></div>
+                </div>
+                <div id="results-container"></div>
+            </div>
+
+            <div id="error-message" class="error-message hidden"></div>
+            <div id="progress-message" class="progress-message hidden"></div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
