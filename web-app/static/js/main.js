@@ -10,6 +10,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearResultsBtn = document.getElementById('clear-results-btn');
     const errorMessage = document.getElementById('error-message');
     const modelStatus = document.getElementById('model-status');
+    const expansionCheckbox = document.getElementById('expansion-checkbox');
+    const expansionInfoDiv = document.getElementById('expansion-info');
+    const originalQueryText = document.getElementById('original-query-text');
+    const expandedQueryText = document.getElementById('expanded-query-text');
 
     // Counter for search results
     let searchCounter = 0;
@@ -67,7 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({
                     query: query,
-                    model: selectedModel
+                    model: selectedModel,
+                    use_expansion: expansionCheckbox.checked
                 })
             });
 
@@ -99,7 +104,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function displayResults(data) {
-        const { query, model, results } = data;
+        const { query, model, results, expansion_info, expanded_query } = data;
+        
+        // Show expansion info if expansion was used
+        if (expansion_info && expansion_info.expansion_used) {
+            showExpansionInfo(query, expanded_query, expansion_info);
+        } else {
+            hideExpansionInfo();
+        }
         
         // Increment search counter
         searchCounter++;
@@ -113,9 +125,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchInfo = document.createElement('div');
         searchInfo.className = 'search-info';
         const timestamp = new Date().toLocaleTimeString();
+        
+        let queryDisplayText = `"${escapeHtml(query)}"`;
+        if (expansion_info && expansion_info.expansion_used) {
+            queryDisplayText += ` (expanded with AI)`;
+        }
+        
         searchInfo.innerHTML = `
             <div class="search-info-content">
-                <strong>Query:</strong> "${escapeHtml(query)}" | 
+                <strong>Query:</strong> ${queryDisplayText} | 
                 <strong>Model:</strong> ${escapeHtml(model)} | 
                 <strong>Results:</strong> ${results.length} | 
                 <strong>Time:</strong> ${timestamp}
@@ -200,13 +218,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const status = selectedOption.dataset.status;
         
         if (status === 'loaded') {
-            modelStatus.textContent = 'Database is loaded in memory - ready for fast searching!';
+            modelStatus.textContent = 'Database is loaded!';
             modelStatus.className = 'model-status loaded';
         } else if (status === 'available') {
-            modelStatus.textContent = 'Database is ready. Will be loaded into memory on first search.';
+            modelStatus.textContent = 'Database exists but is not running. It will start on first search.';
             modelStatus.className = 'model-status available';
         } else if (status === 'creating') {
-            modelStatus.textContent = 'Database is being created in the background. Please wait...';
+            modelStatus.textContent = 'Database is being created. Please wait...';
             modelStatus.className = 'model-status creating';
         } else if (status === 'failed') {
             modelStatus.textContent = 'Database creation failed. Please try refreshing the page.';
@@ -322,6 +340,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function hideProgress() {
         const progressMessage = document.getElementById('progress-message');
         progressMessage.classList.add('hidden');
+    }
+
+    function showExpansionInfo(originalQuery, expandedQuery, expansionData) {
+        originalQueryText.textContent = originalQuery;
+        expandedQueryText.textContent = expandedQuery;
+        expansionInfoDiv.classList.remove('hidden');
+    }
+
+    function hideExpansionInfo() {
+        expansionInfoDiv.classList.add('hidden');
     }
 
     function escapeHtml(text) {

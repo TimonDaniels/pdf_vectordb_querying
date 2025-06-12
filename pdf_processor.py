@@ -160,7 +160,6 @@ class PDFProcessor:
         Returns:
             List of embedding model names that have databases
         """
-        if not os.path.exists(self.base_db_directory):      
         available = []
         for model_name in self.SUPPORTED_EMBEDDINGS.keys():
             db_dir = self.get_database_directory(model_name)
@@ -255,7 +254,7 @@ class PDFProcessor:
                     page_content=text,
                     metadata={
                         "source": pdf_path,
-                        "party": party_name,
+                        "document": document_name,
                         "filename": os.path.basename(pdf_path)
                     }
                 )
@@ -283,8 +282,8 @@ class PDFProcessor:
             # Add chunk index to metadata
             chunk.metadata["chunk_id"] = i
             # Ensure all required metadata is present
-            if "party" not in chunk.metadata:
-                chunk.metadata["party"] = "Unknown"
+            if "document" not in chunk.metadata:
+                chunk.metadata["document"] = "Unknown"
             if "filename" not in chunk.metadata:
                 chunk.metadata["filename"] = "Unknown"
             if "source" not in chunk.metadata:
@@ -459,7 +458,7 @@ class PDFProcessor:
             for doc, score in results:
                 formatted_results.append({
                     "content": doc.page_content,
-                    "party": doc.metadata.get("party", "Unknown"),
+                    "document": doc.metadata.get("document", "Unknown"),
                     "filename": doc.metadata.get("filename", "Unknown"),
                     "source": doc.metadata.get("source", "Unknown"),
                     "chunk_id": doc.metadata.get("chunk_id", "Unknown"),

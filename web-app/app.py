@@ -13,6 +13,7 @@ import time
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 from pdf_processor import PDFProcessor
+from query_expander import QueryExpander
 
 app = Flask(__name__)
 
@@ -20,6 +21,9 @@ app = Flask(__name__)
 data_dir = os.path.join(parent_dir, "data")
 chroma_db_dir = os.path.join(parent_dir, "chroma_db")
 processor = PDFProcessor(pdf_directory=data_dir, base_db_directory=chroma_db_dir)
+
+# Initialize query expander
+query_expander = QueryExpander()
 
 # Track database creation status
 database_creation_status = {}
@@ -106,6 +110,7 @@ def search():
     data = request.get_json()
     query = data.get('query', '').strip()
     model = data.get('model', '')
+    use_expansion = data.get('use_expansion', False)
     
     if not query:
         return jsonify({'error': 'Query cannot be empty'}), 400
@@ -116,6 +121,22 @@ def search():
     # Check if model exists in supported models
     if model not in processor.SUPPORTED_EMBEDDINGS:
         return jsonify({'error': 'Invalid model selected'}), 400
+    
+    # Handle query expansion
+    expansion_info = None
+    final_query = query
+    
+    if use_expansion:
+        try:
+            expansion_result = query_expander.expand_query(query)
+            expansion_info = expansion_result
+            if expansion_result['expansion_used']:
+                final_query = expansion_result['expanded_query']
+                print(f"Original query: {query}")
+                print(f"Expanded query: {final_query}")
+        except Exception as e:
+            print(f"Query expansion failed: {e}")
+            # Continue with original query if expansion fails
     
     # Check if database exists for this model
     available_dbs = processor.get_available_databases()
@@ -129,8 +150,8 @@ def search():
         return jsonify({'status': 'in_progress', 'message': f'Database for {model} is being created. Please try again in a few moments.'}), 202
     
     try:
-        # Perform search with the selected model
-        results = processor.search_with_model(query, model, k=3)
+        # Perform search with the final query (original or expanded)
+        results = processor.search_with_model(final_query, model, k=3)
         
         # Format results for JSON response
         formatted_results = []
@@ -145,11 +166,19 @@ def search():
                 'content': result['content']
             })
         
-        return jsonify({
+        response_data = {
             'query': query,
             'model': model,
             'results': formatted_results
-        })
+        }
+        
+        # Add expansion info if expansion was used
+        if expansion_info:
+            response_data['expansion_info'] = expansion_info
+            if expansion_info['expansion_used']:
+                response_data['expanded_query'] = final_query
+        
+        return jsonify(response_data)
     
     except Exception as e:
         return jsonify({'error': f'Search failed: {str(e)}'}), 500

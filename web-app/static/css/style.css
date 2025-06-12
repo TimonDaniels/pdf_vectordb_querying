@@ -129,6 +129,56 @@ textarea.form-control {
     min-height: 80px;
 }
 
+/* Checkbox and expansion styles */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: #3498db;
+    cursor: pointer;
+}
+
+.checkbox-label {
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: #555;
+    user-select: none;
+}
+
+.expansion-info {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.expansion-details {
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.expansion-details strong {
+    color: #2c3e50;
+}
+
+#original-query-text {
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+#expanded-query-text {
+    color: #27ae60;
+    font-weight: 500;
+}
+
 .btn {
     padding: 14px 30px;
     border: none;

@@ -49,6 +49,21 @@
                               rows="3"></textarea>
                 </div>
 
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="expansion-checkbox" class="checkbox">
+                        <label for="expansion-checkbox" class="checkbox-label">
+                            🤖 Expand query with AI (uses OpenAI GPT-3.5-turbo)
+                        </label>
+                    </div>
+                    <div id="expansion-info" class="expansion-info hidden">
+                        <div class="expansion-details">
+                            <strong>Original query:</strong> <span id="original-query-text"></span><br>
+                            <strong>Expanded query:</strong> <span id="expanded-query-text"></span>
+                        </div>
+                    </div>
+                </div>
+
                 <button id="search-btn" class="btn btn-primary">Search</button>
             </div>
 
