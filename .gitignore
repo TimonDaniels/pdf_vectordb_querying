@@ -6,6 +6,9 @@ venv\
 chroma_db/
 chroma_db\
 
+# data folder
+data/
+
 # Python
 __pycache__/
 *.py[cod]

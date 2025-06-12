@@ -46,12 +46,12 @@ class PDFProcessor:
         }
     }
 
-    def __init__(self, pdf_directory: str = "programma-2023", base_db_directory: str = "chroma_db"):
+    def __init__(self, pdf_directory: str = "data", base_db_directory: str = "chroma_db"):
         """
         Initialize the PDF processor.
         
         Args:
-            pdf_directory: Directory containing PDF files
+            pdf_directory: Directory containing PDF files to process
             base_db_directory: Base directory to store multiple ChromaDB databases
         """
         self.pdf_directory = pdf_directory
@@ -249,15 +249,15 @@ class PDFProcessor:
             text = self.extract_text_from_pdf(pdf_path)
             
             if text.strip():
-                # Get party name from filename (remove .pdf extension)
-                party_name = os.path.splitext(os.path.basename(pdf_path))[0]
+                # Get document name from filename (remove .pdf extension)
+                document_name = os.path.splitext(os.path.basename(pdf_path))[0]
                 
                 # Create document with metadata
                 doc = Document(
                     page_content=text,
                     metadata={
                         "source": pdf_path,
-                        "party": party_name,
+                        "document": document_name,
                         "filename": os.path.basename(pdf_path)
                     }
                 )
@@ -285,8 +285,8 @@ class PDFProcessor:
             # Add chunk index to metadata
             chunk.metadata["chunk_id"] = i
             # Ensure all required metadata is present
-            if "party" not in chunk.metadata:
-                chunk.metadata["party"] = "Unknown"
+            if "document" not in chunk.metadata:
+                chunk.metadata["document"] = "Unknown"
             if "filename" not in chunk.metadata:
                 chunk.metadata["filename"] = "Unknown"
             if "source" not in chunk.metadata:
@@ -358,7 +358,7 @@ class PDFProcessor:
                         documents=batch,
                         embedding=self.current_embeddings,
                         persist_directory=db_dir,
-                        collection_name="political_programs"
+                        collection_name="documents"
                     )
                     print(f"Initial vector store created with {len(batch)} documents")
                 else:
@@ -418,7 +418,7 @@ class PDFProcessor:
             vectorstore = Chroma(
                 persist_directory=db_dir,
                 embedding_function=embedding,
-                collection_name="political_programs"
+                collection_name="documents"
             )
             
             # Test the connection
@@ -461,7 +461,7 @@ class PDFProcessor:
             for doc, score in results:
                 formatted_results.append({
                     "content": doc.page_content,
-                    "party": doc.metadata.get("party", "Unknown"),
+                    "document": doc.metadata.get("document", "Unknown"),
                     "filename": doc.metadata.get("filename", "Unknown"),
                     "source": doc.metadata.get("source", "Unknown"),
                     "chunk_id": doc.metadata.get("chunk_id", "Unknown"),

@@ -1,6 +1,6 @@
 """
-Flask web application for PDF search functionality.
-This provides a web interface for the search_interactive() function.
+Flask web application for PDF vector search functionality.
+This provides a web interface for searching through PDF documents using multiple embedding models.
 """
 
 from flask import Flask, render_template, request, jsonify
@@ -76,7 +76,7 @@ def get_model_status_with_cache(model_name):
         return 'loaded'
     
     return 'available'
-    
+
 
 @app.route('/')
 def index():
@@ -134,7 +134,7 @@ def search():
         for i, result in enumerate(results, 1):
             formatted_results.append({
                 'rank': i,
-                'party': result['party'],
+                'document': result['document'],
                 'filename': result['filename'],
                 'chunk_id': result['chunk_id'],
                 'similarity_score': round(result['similarity_score'], 3),

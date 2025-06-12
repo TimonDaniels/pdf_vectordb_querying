@@ -31,14 +31,13 @@ def example_usage():
         if vectorstore is None:
             print("Failed to create database. Check your PDF directory.")
             return
-    
-    # Example queries
+      # Example queries
     example_queries = [
-        "climate change and environment protection",
-        "immigration and integration policies", 
-        "healthcare and social security",
-        "education and youth development",
-        "economic growth and job creation"
+        "climate change and environment",
+        "technology and innovation", 
+        "healthcare and medicine",
+        "education and learning",
+        "economic growth and development"
     ]
     
     # Use the first available model for searches
@@ -51,10 +50,9 @@ def example_usage():
     for query in example_queries:
         print(f"\nQuery: '{query}'")
         print("-" * 40)
-        
-        results = processor.search_with_model(query, model_to_use, k=2)
+          results = processor.search_with_model(query, model_to_use, k=2)
         for i, result in enumerate(results, 1):
-            print(f"{i}. {result['party']}: {result['content']}...")
+            print(f"{i}. {result['document']}: {result['content'][:100]}...")
             print(f"   (Score: {result['similarity_score']:.3f}, Model: {result['embedding_model']})")
         
         print()
@@ -98,13 +96,11 @@ def search_interactive():
                     print("Invalid choice. Please try again.")
         except ValueError:
             print("Invalid input. Please enter a number.")
-    
-    print(f"\nUsing model: {selected_model}")
-    print("Enter your questions or opinions to find relevant political positions.")
+      print(f"\nUsing model: {selected_model}")
+    print("Enter your search queries to find relevant content in the documents.")
     print("Type 'quit' to exit.\n")
-    
-    while True:
-        query = input("Your question: ").strip()
+      while True:
+        query = input("Your query: ").strip()
         
         if query.lower() in ['quit', 'exit', 'q']:
             print("Goodbye!")
@@ -119,12 +115,12 @@ def search_interactive():
         
         if results:
             for i, result in enumerate(results, 1):
-                print(f"\n{i}. Party: {result['party']}")
+                print(f"\n{i}. Document: {result['document']}")
                 print(f"   File: {result['filename']}")
                 print(f"   Chunk ID: {result['chunk_id']}")
                 print(f"   Relevance: {result['similarity_score']:.3f}")
                 print(f"   Model: {result['embedding_model']}")
-                print(f"   Content: {result['content']}...")
+                print(f"   Content: {result['content'][:200]}...")
         else:
             print("No relevant content found.")
         
@@ -147,9 +143,8 @@ def model_comparison_demo():
         if model not in processor.get_available_databases():
             print(f"Creating database with {model}...")
             processor.create_database_with_model(model)
-    
-    # Test query
-    test_query = "climate change and environmental protection"
+      # Test query
+    test_query = "technology and innovation"
     
     print(f"\nComparing models for query: '{test_query}'")
     print("-" * 60)
@@ -158,9 +153,8 @@ def model_comparison_demo():
         if model in processor.get_available_databases():
             print(f"\nResults from {model}:")
             results = processor.search_with_model(test_query, model, k=2)
-            
-            for i, result in enumerate(results, 1):
-                print(f"  {i}. {result['party']} (score: {result['similarity_score']:.3f})")
+              for i, result in enumerate(results, 1):
+                print(f"  {i}. {result['document']} (score: {result['similarity_score']:.3f})")
                 print(f"     {result['content'][:100]}...")
         else:
             print(f"\n{model}: Database not available")
@@ -234,19 +228,18 @@ def database_management_demo():
         print(f"\n✓ Successfully created database with {selected_model}!")
         print("\nUpdated database list:")
         processor.list_databases_info()
-        
-        # Optional: Test the new database
+          # Optional: Test the new database
         test_choice = input(f"\nTest the new {selected_model} database with a sample query? (y/n): ").strip().lower()
         if test_choice == 'y':
-            test_query = "climate change policy"
+            test_query = "technology innovation"
             print(f"\nTesting with query: '{test_query}'")
             results = processor.search_with_model(test_query, selected_model, k=2)
             
             if results:
                 print(f"Found {len(results)} results:")
                 for i, result in enumerate(results, 1):
-                    print(f"  {i}. {result['party']} (score: {result['similarity_score']:.3f})")
-                    print(f"     {result['content']}...")
+                    print(f"  {i}. {result['document']} (score: {result['similarity_score']:.3f})")
+                    print(f"     {result['content'][:100]}...")
             else:
                 print("No results found for test query.")
     else:

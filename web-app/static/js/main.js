@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         resultDiv.innerHTML = `
             <div class="result-header">
-                <div class="result-title">${result.rank}. ${escapeHtml(result.party)}</div>
+                <div class="result-title">${result.rank}. ${escapeHtml(result.document)}</div>
                 <div class="result-score">Score: ${result.similarity_score}</div>
             </div>
             
