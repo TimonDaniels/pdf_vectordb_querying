@@ -60,12 +60,6 @@ class VectorStore:
         self.base_db_directory = base_db_directory
         self.current_embedding_model = None
         self.current_embeddings = None
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=2000,
-            chunk_overlap=400,
-            length_function=len
-        )
-        
         # Cache for loaded databases and embedding models
         self._vectorstore_cache = {}  # model_name -> Chroma vectorstore
         self._embedding_cache = {}    # model_name -> embedding instance
@@ -245,7 +239,7 @@ class VectorStore:
                 print(f"Processing PDF: {os.path.basename(pdf_path)}")
                 document = parser.extract_text(pdf_path)
                 if document:
-                    documents.append(Document(page_content=document))
+                    documents.append(document)
                 else:
                     print(f"Warning: No text extracted from {pdf_path}")
 

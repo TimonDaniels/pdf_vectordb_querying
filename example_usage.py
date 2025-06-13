@@ -3,6 +3,8 @@ Example usage of the PDF processor system with multiple embedding models.
 This script shows how to use the PDFProcessor class for different tasks.
 """
 
+from chunker import RecursiveTextChunker
+from pdf_parser import LayoutPDFParser, PyPDFParser
 from vectorstore import VectorStore
 
 
@@ -222,7 +224,10 @@ def database_management_demo():
             return
     
     # Create the database
-    vectorstore = processor.create_database_with_model(selected_model)
+    # parser = PyPDFParser()
+    parser = LayoutPDFParser()
+    chunker = RecursiveTextChunker()
+    vectorstore = processor.create_database_with_model(selected_model, parser=parser, chunker=chunker)
     
     if vectorstore:
         print(f"\n✓ Successfully created database with {selected_model}!")
