@@ -12,7 +12,9 @@ import time
 # Add parent directory to path to import pdf_processor
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
-from pdf_processor import PDFProcessor
+from vectorstore import VectorStore
+from pdf_parser import PDFParser, PyPDFParser
+from chunker import TextChunker, RecursiveTextChunker
 from query_expander import QueryExpander
 
 app = Flask(__name__)
@@ -20,7 +22,7 @@ app = Flask(__name__)
 # Initialize the processor globally with correct paths
 data_dir = os.path.join(parent_dir, "data")
 chroma_db_dir = os.path.join(parent_dir, "chroma_db")
-processor = PDFProcessor(pdf_directory=data_dir, base_db_directory=chroma_db_dir)
+processor = VectorStore(pdf_directory=data_dir, base_db_directory=chroma_db_dir)
 
 # Initialize query expander
 query_expander = QueryExpander()
@@ -30,7 +32,7 @@ database_creation_status = {}
 creation_lock = threading.Lock()
 
 
-def create_database_background(model_name):
+def create_database_background(model_name: str, parser: PDFParser, chunker: TextChunker):
     """Create database in background thread."""
     def create_db():
         with creation_lock:
@@ -38,8 +40,8 @@ def create_database_background(model_name):
         
         try:
             print(f"Starting background creation of database for {model_name}...")
-            vectorstore = processor.create_database_with_model(model_name)
-            
+            vectorstore = processor.create_database_with_model(model_name, parser, chunker)
+
             with creation_lock:
                 if vectorstore:
                     database_creation_status[model_name] = 'available'
@@ -146,7 +148,9 @@ def search():
             return jsonify({'status': 'in_progress', 'message': f'Database for {model} is being created. Please wait and try again.'}), 202
         
         # Start creating database in background
-        create_database_background(model)
+        parser = PyPDFParser()
+        chunker = RecursiveTextChunker()
+        create_database_background(model, parser, chunker)
         return jsonify({'status': 'in_progress', 'message': f'Database for {model} is being created. Please try again in a few moments.'}), 202
     
     try:

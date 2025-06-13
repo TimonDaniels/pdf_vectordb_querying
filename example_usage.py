@@ -3,7 +3,7 @@ Example usage of the PDF processor system with multiple embedding models.
 This script shows how to use the PDFProcessor class for different tasks.
 """
 
-from pdf_processor import PDFProcessor
+from vectorstore import VectorStore
 
 
 def example_usage():
@@ -11,7 +11,7 @@ def example_usage():
     Example of how to use the PDF processing system with different embedding models.
     """
     # Initialize the processor
-    processor = PDFProcessor()
+    processor = VectorStore()
     
     # Show available models
     print("Supported embedding models:")
@@ -62,7 +62,7 @@ def search_interactive():
     """
     Interactive search function with model selection.
     """
-    processor = PDFProcessor()
+    processor = VectorStore()
     
     # Check available databases
     available_dbs = processor.get_available_databases()
@@ -131,7 +131,7 @@ def model_comparison_demo():
     """
     Demonstrate comparison across different embedding models.
     """
-    processor = PDFProcessor()
+    processor = VectorStore()
     
     # Create databases with different models if they don't exist
     models_to_test = ["huggingface_minilm", "sentence_transformer"]
@@ -164,7 +164,7 @@ def database_management_demo():
     """
     Demonstrate database management features.
     """
-    processor = PDFProcessor()
+    processor = VectorStore()
     
     print("Database Management Demo")
     print("========================")

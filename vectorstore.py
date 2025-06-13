@@ -9,18 +9,20 @@ import glob
 import json
 from typing import List, Dict, Optional
 from datetime import datetime
-import PyPDF2
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma.vectorstores import Chroma
 from langchain_community.embeddings import SentenceTransformerEmbeddings, OpenAIEmbeddings, HuggingFaceEmbeddings
 from langchain.schema import Document
 from dotenv import load_dotenv
 
+from pdf_parser import PDFParser
+from chunker import TextChunker
+
 # Load environment variables from .env.local file
 load_dotenv('.env.local')
 
 
-class PDFProcessor:
+class VectorStore:
     """
     PDF processor with support for multiple embedding models and databases.
     Includes caching for better performance when switching between models.
@@ -205,93 +207,9 @@ class PDFProcessor:
             json.dump(metadata, f, indent=2)
         
         print(f"Saved metadata for {model_name} database")
-        
-    def extract_text_from_pdf(self, pdf_path: str) -> str:
-        """
-        Extract text from a single PDF file.
-        
-        Args:
-            pdf_path: Path to the PDF file
-            
-        Returns:
-            Extracted text as string
-        """
-        text = ""
-        try:
-            with open(pdf_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
-        except Exception as e:
-            print(f"Error extracting text from {pdf_path}: {e}")
-        
-        return text
-    
-    def process_all_pdfs(self) -> List[Document]:
-        """
-        Extract text from all PDFs in the directory and create documents.
-        
-        Returns:
-            List of LangChain Document objects
-        """
-        documents = []
-        pdf_files = glob.glob(os.path.join(self.pdf_directory, "*.pdf"))
-        
-        print(f"Found {len(pdf_files)} PDF files to process...")
-        
-        for pdf_path in pdf_files:
-            print(f"Processing: {os.path.basename(pdf_path)}")
-            
-            # Extract text
-            text = self.extract_text_from_pdf(pdf_path)
-            
-            if text.strip():
-                # Get document name from filename (remove .pdf extension)
-                document_name = os.path.splitext(os.path.basename(pdf_path))[0]
-                
-                # Create document with metadata
-                doc = Document(
-                    page_content=text,
-                    metadata={
-                        "source": pdf_path,
-                        "document": document_name,
-                        "filename": os.path.basename(pdf_path)
-                    }
-                )
-                documents.append(doc)
-            else:
-                print(f"Warning: No text extracted from {pdf_path}")
-        
-        return documents
-    
-    def chunk_documents(self, documents: List[Document]) -> List[Document]:
-        """
-        Split documents into chunks while preserving metadata.
-        
-        Args:
-            documents: List of Document objects
-            
-        Returns:
-            List of chunked Document objects with preserved metadata
-        """
-        print("Splitting documents into chunks...")
-        chunked_docs = self.text_splitter.split_documents(documents)
-        
-        # Verify and enhance metadata for each chunk
-        for i, chunk in enumerate(chunked_docs):
-            # Add chunk index to metadata
-            chunk.metadata["chunk_id"] = i
-            # Ensure all required metadata is present
-            if "document" not in chunk.metadata:
-                chunk.metadata["document"] = "Unknown"
-            if "filename" not in chunk.metadata:
-                chunk.metadata["filename"] = "Unknown"
-            if "source" not in chunk.metadata:
-                chunk.metadata["source"] = "Unknown"        
-        print(f"Created {len(chunked_docs)} chunks from {len(documents)} documents")
-        return chunked_docs
 
-    def create_database_with_model(self, model_name: str, force_recreate: bool = False) -> Optional[Chroma]:
+
+    def create_database_with_model(self, model_name: str, parser: PDFParser, chunker: TextChunker, force_recreate: bool = False) -> Optional[Chroma]:
         """
         Create ChromaDB vector database with a specific embedding model.
         
@@ -321,14 +239,22 @@ class PDFProcessor:
         
         try:
             # Step 1: Extract text from all PDFs
-            documents = self.process_all_pdfs()
-            
+            pdf_files = glob.glob(os.path.join(self.pdf_directory, "*.pdf"))
+            documents = []
+            for pdf_path in pdf_files:
+                print(f"Processing PDF: {os.path.basename(pdf_path)}")
+                document = parser.extract_text(pdf_path)
+                if document:
+                    documents.append(Document(page_content=document))
+                else:
+                    print(f"Warning: No text extracted from {pdf_path}")
+
             if not documents:
                 print("No documents were processed. Check your PDF directory.")
                 return None
             
             # Step 2: Chunk the documents
-            chunked_docs = self.chunk_documents(documents)
+            chunked_docs = chunker.chunk_text(documents)
             
             # Step 3: Create vector database
             print(f"Creating vector database in {db_dir}...")
