@@ -12,3 +12,6 @@ python-dotenv
 tiktoken
 Flask
 Werkzeug
+PyMuPDF
+aiofiles
+aiohttp
