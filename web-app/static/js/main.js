@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function displayResults(data) {
-        const { query, model, results, expansion_info, expanded_query } = data;
+        const { query, model, results, expansion_info, expanded_query, synthesis } = data;
         
         // Show expansion info if expansion was used
         if (expansion_info && expansion_info.expansion_used) {
@@ -143,6 +143,22 @@ document.addEventListener('DOMContentLoaded', function() {
             </button>
         `;
 
+        // Create synthesis section if synthesis is available
+        let synthesisElement = null;
+        if (synthesis) {
+            synthesisElement = document.createElement('div');
+            synthesisElement.className = 'synthesis-section';
+            synthesisElement.innerHTML = `
+                <div class="synthesis-header">
+                    <h3>🤖 AI Analysis</h3>
+                    <span class="synthesis-subtitle">How political parties relate to your query</span>
+                </div>
+                <div class="synthesis-content">
+                    ${escapeHtml(synthesis).replace(/\n/g, '<br>')}
+                </div>
+            `;
+        }
+
         // Create results container for this search
         const searchResults = document.createElement('div');
         searchResults.className = 'search-results';
@@ -165,6 +181,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Assemble the search result set
         searchResultSet.appendChild(searchInfo);
+        
+        // Add synthesis section if available
+        if (synthesisElement) {
+            searchResultSet.appendChild(synthesisElement);
+        }
+        
         searchResultSet.appendChild(searchResults);
 
         // Insert at the top of results container (newest first)

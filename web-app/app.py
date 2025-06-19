@@ -16,6 +16,7 @@ from vectorstore import VectorStore
 from pdf_parser import PDFParser, PyPDFParser
 from chunker import TextChunker, RecursiveTextChunker
 from query_expander import QueryExpander
+from synthesis import synthesize_opinion_fit
 
 app = Flask(__name__)
 
@@ -110,20 +111,31 @@ def index():
 def search():
     """Handle search requests."""
     data = request.get_json()
+    print(f"Received request data: {data}")  # Debug logging
+    
+    if not data:
+        print("Error: No JSON data received")  # Debug logging
+        return jsonify({'error': 'No data received'}), 400
+        
     query = data.get('query', '').strip()
     model = data.get('model', '')
     use_expansion = data.get('use_expansion', False)
     
+    print(f"Parsed - Query: '{query}', Model: '{model}', Expansion: {use_expansion}")  # Debug logging
+    
     if not query:
+        print("Error: Query is empty")  # Debug logging
         return jsonify({'error': 'Query cannot be empty'}), 400
     
     if not model:
+        print("Error: Model not selected")  # Debug logging
         return jsonify({'error': 'Model must be selected'}), 400
     
     # Check if model exists in supported models
     if model not in processor.SUPPORTED_EMBEDDINGS:
+        print(f"Error: Invalid model '{model}'")  # Debug logging
         return jsonify({'error': 'Invalid model selected'}), 400
-    
+        
     # Handle query expansion
     expansion_info = None
     final_query = query
@@ -173,10 +185,32 @@ def search():
                 'content': result['content']
             })
         
+        # Generate synthesis if results are available
+        synthesis = None
+        if formatted_results:
+            try:
+                # Convert formatted results to the format expected by synthesis module
+                synthesis_input = []
+                for result in formatted_results:
+                    synthesis_input.append({
+                        'content': result['content'],
+                        'metadata': {
+                            'source': result['filename'],
+                            'page': result.get('page_number'),
+                            'chunk': result['chunk_id']
+                        }
+                    })
+                
+                synthesis = synthesize_opinion_fit(query, synthesis_input)
+            except Exception as e:
+                print(f"Synthesis generation failed: {e}")
+                # Continue without synthesis if it fails
+        
         response_data = {
             'query': query,
             'model': model,
-            'results': formatted_results
+            'results': formatted_results,
+            'synthesis': synthesis
         }
         
         # Add expansion info if expansion was used
@@ -263,4 +297,4 @@ def clear_cache():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)

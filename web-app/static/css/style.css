@@ -396,6 +396,64 @@ textarea.form-control {
     color: #2c3e50;
 }
 
+/* Synthesis Section Styles */
+.synthesis-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    margin: 0;
+    padding: 25px 30px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.synthesis-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.synthesis-header h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+}
+
+.synthesis-subtitle {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-style: italic;
+}
+
+.synthesis-content {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 8px;
+    line-height: 1.6;
+    font-size: 1rem;
+    border-left: 4px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+/* Responsive synthesis styles */
+@media (max-width: 768px) {
+    .synthesis-section {
+        padding: 20px;
+    }
+    
+    .synthesis-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .synthesis-content {
+        padding: 15px;
+        font-size: 0.95rem;
+    }
+}
+
 .hidden {
     display: none;
 }
