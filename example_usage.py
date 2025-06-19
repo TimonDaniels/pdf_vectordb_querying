@@ -129,39 +129,6 @@ def search_interactive():
         print("\n" + "="*50)
 
 
-def model_comparison_demo():
-    """
-    Demonstrate comparison across different embedding models.
-    """
-    processor = VectorStore()
-    
-    # Create databases with different models if they don't exist
-    models_to_test = ["huggingface_minilm", "sentence_transformer"]
-    
-    print("Model Comparison Demo")
-    print("====================")
-    
-    for model in models_to_test:
-        if model not in processor.get_available_databases():
-            print(f"Creating database with {model}...")
-            processor.create_database_with_model(model)
-      # Test query
-    test_query = "technology and innovation"
-    
-    print(f"\nComparing models for query: '{test_query}'")
-    print("-" * 60)
-    
-    for model in models_to_test:
-        if model in processor.get_available_databases():
-            print(f"\nResults from {model}:")
-            results = processor.search_with_model(test_query, model, k=2)
-            for i, result in enumerate(results, 1):
-                print(f"  {i}. {result['document']} (score: {result['similarity_score']:.3f})")
-                print(f"     {result['content'][:100]}...")
-        else:
-            print(f"\n{model}: Database not available")
-
-
 def database_management_demo():
     """
     Demonstrate database management features.
@@ -256,16 +223,13 @@ if __name__ == "__main__":
     print("PDF Processor Demo Options:")
     print("1. Basic example usage")
     print("2. Interactive search")
-    print("3. Model comparison demo")
     print("4. Database management demo")
     
-    choice = input("\nSelect option (1-4) or press Enter for interactive search: ").strip()
+    choice = input("\nSelect option (1-3) or press Enter for interactive search: ").strip()
     
     if choice == "1":
         example_usage()
     elif choice == "3":
-        model_comparison_demo()
-    elif choice == "4":
         database_management_demo()
     else:
         # Default to interactive search

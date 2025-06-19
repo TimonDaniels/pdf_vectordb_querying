@@ -22,9 +22,9 @@ from pdf_parser import PyMuPDFParser
 def chucking_prompt(chunk_content: str):
     return f"""You are an expert at intelligently chunking text for document processing and retrieval systems. The input will be a text in dutch on the vision and plans of political parties in the Netherlands.
 
-Your task is to divide the following text into semantically coherent chunks of approximately 1000 characters each and analyse weather the chunk is related to the vision of the party (what they want to achieve) or if the chunk is more related to the strategy (how they want to achieve their goals). Follow these guidelines:
+Your task is to divide the following text into semantically coherent chunks of approximately 300 characters each and analyse weather the chunk is related to the vision of the party (what they want to achieve) or if the chunk is more related to the strategy (how they want to achieve their goals). Follow these guidelines:
 
-1. **Chunk Size**: Aim for chunks of ~1000 characters (can range from 800-1200 characters)
+1. **Chunk Size**: Aim for chunks of ~300 characters 
 2. **Semantic Coherence**: Each chunk should contain related information that makes sense together
 3. **Paragraph Preservation**: Try to keep complete paragraphs together when possible
 4. **Natural Breaks**: Split at natural boundaries like:
@@ -51,7 +51,7 @@ Here is the text to chunk:
 Now provide the semantically chunked version using the specified format:"""
 
 
-def process_single_pdf(pdf_file: str, token_limit: int = 15000) -> Tuple[str, bool, Dict[str, Any]]:
+def process_single_pdf(pdf_file: str, token_limit) -> Tuple[str, bool, Dict[str, Any]]:
     """
     Process a single PDF file with header-aware chunking.
     This function will be called by multiprocessing workers.
@@ -112,7 +112,7 @@ def process_single_pdf(pdf_file: str, token_limit: int = 15000) -> Tuple[str, bo
         return pdf_file, False, {"error": str(e)}
 
 
-def header_aware_chunking_parallel(pdf_files: List[str], token_limit: int = 15000, max_workers: int = None) -> Dict[str, Any]:
+def header_aware_chunking_parallel(pdf_regex_files: List[str], token_limit: int = 3000, max_workers: int = None) -> Dict[str, Any]:
     """
     Process multiple PDF files in parallel using multiprocessing.
     
@@ -127,6 +127,10 @@ def header_aware_chunking_parallel(pdf_files: List[str], token_limit: int = 1500
     print("=" * 60)
     print("PARALLEL PDF PROCESSING")
     print("=" * 60)
+    
+    pdf_files = [] 
+    for pattern in pdf_regex_files:
+        pdf_files.extend(glob.glob(pattern))
     
     if not pdf_files:
         print("✗ No PDF files provided")
@@ -163,7 +167,6 @@ def header_aware_chunking_parallel(pdf_files: List[str], token_limit: int = 1500
                     print(f"  - Total chars: {result_data['total_chars']:,}")
                     print(f"  - Avg chunk size: {result_data['avg_chunk_size']:.0f} chars")
                     print(f"  - Size range: {result_data['size_range'][0]}-{result_data['size_range'][1]} chars")
-                    print(f"  - Chunks with headers: {result_data['headers_in_chunks']}/{result_data['num_chunks']}")
                     print(f"  - Token estimates: {[f'{t:.0f}' for t in result_data['token_estimates']]}")
                 else:
                     failed += 1
@@ -216,15 +219,15 @@ async def create_semantic_chunk_async(client: AsyncOpenAI, chunk_content: str, c
                 temperature=0.1,
                 max_tokens=16000
             )
-            
-            result = response.choices[0].message.content.strip()
+
+            result = parse_json_text(response.choices[0].message.content.strip(), "semantic_chunks")
             return chunk_file, True, result
             
         except Exception as e:
             return chunk_file, False, str(e)
 
 
-async def semantic_chunking_async(chunk_file_patterns: List[str], max_concurrent: int = 5) -> Dict[str, Any]:
+async def semantic_chunking_async(chunk_file_patterns: List[str], max_concurrent: int = 25) -> Dict[str, Any]:
     """
     Async function to process multiple chunk files for semantic chunking.
     
@@ -311,9 +314,9 @@ async def semantic_chunking_async(chunk_file_patterns: List[str], max_concurrent
                 print(f"   ✓ {chunk_file}: Semantic chunking completed")
                 
                 # Save semantic chunks
-                base_name = chunk_file.replace('.txt', '_semantic.txt')
-                with open(base_name, 'w', encoding='utf-8') as f:
-                    f.write(data)
+                file_name = os.path.basename(chunk_file.replace('.txt', '_semantic.json'))
+                with open(os.path.join("data/semantic_chunks", file_name), 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
                 
                 # Analyze the chunks
                 try:
@@ -323,7 +326,7 @@ async def semantic_chunking_async(chunk_file_patterns: List[str], max_concurrent
                 
                 all_results[chunk_file] = {
                     "success": True,
-                    "output_file": base_name,
+                    "output_file": file_name,
                     "data": data
                 }
             else:
@@ -357,119 +360,8 @@ async def semantic_chunking_async(chunk_file_patterns: List[str], max_concurrent
     finally:
         await client.close()
 
-# ====================================================================================
-# ========================== Synchronous Semantic Chunking ===========================
-# ====================================================================================
 
-def semantic_chunking_sync(chunk_file_regex: List[str]):
-    """
-    Synchronous semantic chunking using OpenAI GPT-4o-mini to create semantically coherent chunks
-    of approximately 1000 characters while maintaining paragraph structure.
-    """
-    print("\n" + "=" * 60)
-    print("SEMANTIC CHUNKING TEST (SYNC)")
-    print("=" * 60)
-    
-    # Set up OpenAI client (assumes OPENAI_API_KEY is set in environment)
-    try:
-        load_dotenv('.env.local')
-        client = openai.OpenAI()  # Uses OPENAI_API_KEY environment variable
-        print("✓ OpenAI client initialized")
-    except Exception as e:
-        print(f"✗ Error initializing OpenAI client: {e}")
-        print("Make sure OPENAI_API_KEY environment variable is set")
-        return
-    
-    # Find all chunk files
-    chunk_files = []
-    for file_regex in chunk_file_regex:
-        chunk_files += glob.glob(file_regex)
-    
-    if not chunk_files:
-        print("✗ No chunk files found. Run header_aware_chunking() first to generate chunks.")
-        return
-    
-    print(f"Found {len(chunk_files)} chunk files to process")
-    
-    # Process each chunk file
-    for chunk_file in sorted(chunk_files):
-        print(f"\n--- Processing {chunk_file} ---")
-        
-        try:
-            # Read the chunk content
-            with open(chunk_file, 'r', encoding='utf-8') as f:
-                chunk_content = f.read().strip()
-            
-            if not chunk_content:
-                print(f"   ✗ Empty file: {chunk_file}")
-                continue
-            
-            print(f"   ✓ Loaded {len(chunk_content)} characters")
-            
-            # Create semantic chunks using OpenAI
-            semantic_chunks = create_semantic_chunks(client, chunk_content)
-            
-            if semantic_chunks:
-                print(f"   ✓ Created semantic chunks")
-                
-                # Save semantic chunks
-                base_name = chunk_file.replace('.txt', '_semantic.txt')
-                with open(base_name, 'w', encoding='utf-8') as f:
-                    f.write(semantic_chunks)
-                
-                print(f"   ✓ Saved semantic chunks to {base_name}")
-                
-                # Analyze the chunks
-                analyze_semantic_chunks(semantic_chunks)
-            else:
-                print(f"   ✗ Failed to create semantic chunks")
-                
-        except Exception as e:
-            print(f"   ✗ Error processing {chunk_file}: {e}")
-
-
-def create_semantic_chunks(client, text_content):
-    """
-    Use OpenAI to create semantic chunks from text content.
-    
-    Args:
-        client: OpenAI client
-        text_content: Text to be chunked
-        
-    Returns:
-        String containing all chunks separated by special delimiters
-    """
-    
-    # Create the prompt for semantic chunking
-    prompt = chucking_prompt(text_content)
-
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are an expert at intelligent text chunking for document processing systems. You create semantically coherent chunks that preserve meaning and context."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.1,  # Low temperature for consistent chunking
-            max_tokens=16000   # Adjust based on input size
-        )
-        
-        return response.choices[0].message.content.strip()
-        
-    except Exception as e:
-        print(f"   ✗ OpenAI API error: {e}")
-        return None
-
-
-def analyze_semantic_chunks(chunked_text):
-    """
-    Analyze the semantic chunks to provide statistics.
-    
-    Args:
-        chunked_text: JSON string with chunks or text with chunks separated by delimiters
-    """
-    
-    chunks = None
+def parse_json_text(chunked_text: str, chunk_name: str):
     try:
         # Try to parse as JSON first
         if chunked_text.strip().startswith('[') or chunked_text.strip().startswith('{'):
@@ -485,15 +377,15 @@ def analyze_semantic_chunks(chunked_text):
             else:
                 # Fallback to old eval method (deprecated)
                 chunks = eval(chunked_text[7:-3])
+            return chunks
+
     except Exception as e:
-        print(f"   ✗ Error parsing semantic chunks: {e}")
+        print(f"   ✗ Error parsing semantic chunks with name {chunk_name}: {e}")
         print(f"   Raw output (first 200 chars): {chunked_text[:200]}...")
         return
-    
-    if not chunks:
-        print("   ✗ No chunks found in output")
-        return
-    
+
+
+def analyze_semantic_chunks(chunks):
     # Calculate statistics
     chunk_lengths = []
     for chunk in chunks:
@@ -513,15 +405,10 @@ def analyze_semantic_chunks(chunked_text):
     min_length = min(chunk_lengths)
     max_length = max(chunk_lengths)
     
-    # Count chunks in target range (800-1200 characters)
-    target_range_count = sum(1 for length in chunk_lengths if 800 <= length <= 1200)
-    target_percentage = (target_range_count / len(chunk_lengths)) * 100
-    
     print(f"   ✓ Analysis Results:")
     print(f"     - Total chunks: {len(chunk_lengths)}")
     print(f"     - Average length: {avg_length:.0f} characters")
     print(f"     - Length range: {min_length} - {max_length} characters")
-    print(f"     - Chunks in target range (800-1200): {target_range_count}/{len(chunk_lengths)} ({target_percentage:.1f}%)")
     
     # Show first chunk preview
     if chunks:
@@ -538,37 +425,27 @@ def analyze_semantic_chunks(chunked_text):
 
 if __name__ == "__main__":
     # Check for command line arguments
-
     pdf_files = [
-        "data/CDA.pdf",
-        "data/CU.pdf",
+        "data/*.pdf",
     ]
     chunk_file_regex = [
-        "data/BBB_chunk_0.txt",
-        "data/BBB_chunk_1.txt",
-        "data/BBB_chunk_2.txt",
-        "data/BBB_chunk_5.txt",
-        "data/CDA_chunk_*.txt",
-        "data/CU_chunk_*.txt",
+        "data/VVD_chunk_23.txt",
     ]
+
     if len(sys.argv) > 1:
         if "--semantic-only" in sys.argv:
-            print("Running Semantic Chunking Only")
-            print("=" * 50)
-            semantic_chunking_sync(pdf_files)
-        elif "--async-only" in sys.argv:
             print("Running Async Semantic Chunking Only")
             print("=" * 50)
-            asyncio.run(semantic_chunking_async(chunk_file_regex, max_concurrent=5))
+            asyncio.run(semantic_chunking_async(chunk_file_regex))
     else:
         print("Testing PyMuPDF Parser with Parallel & Async Processing")
         print("=" * 60)
         
         # Test parallel PDF processing
-        header_aware_chunking_parallel(pdf_files)
+        # header_aware_chunking_parallel(pdf_files)
         
         # Test async semantic chunking
-        asyncio.run(semantic_chunking_async(chunk_file_regex, max_concurrent=5))
+        asyncio.run(semantic_chunking_async(chunk_file_regex)) 
         
         print("\n" + "=" * 60)
         print("All tests completed!")
