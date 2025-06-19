@@ -9,8 +9,8 @@ def main():
 
     vector_store = VectorStore()
     vector_store.set_embedding_model("openai")
-    vector_store.from_chunk_files(["data/semantic_chunks/*_chunk_*_semantic.json"], batch_size=500)
-    
+    vector_store.from_chunk_files("data/semantic_chunks", ["*_chunk_*_semantic.json"], batch_size=500)
 
+    
 if __name__ == "__main__":
     main()
