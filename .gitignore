@@ -8,6 +8,7 @@ chroma_db\
 
 # data folder
 data/
+data/semantic_chunks/
 
 # Python
 __pycache__/
