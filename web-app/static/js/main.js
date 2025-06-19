@@ -177,6 +177,46 @@ document.addEventListener('DOMContentLoaded', function() {
         const resultDiv = document.createElement('div');
         resultDiv.className = 'result-item';
         
+        // Build metadata items dynamically
+        let metaItems = `
+            <div class="meta-item">
+                <span class="meta-label">File:</span>
+                <span>${escapeHtml(result.filename)}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Chunk ID:</span>
+                <span>${escapeHtml(result.chunk_id)}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Model:</span>
+                <span>${escapeHtml(result.embedding_model)}</span>
+            </div>`;
+        
+        // Add new metadata fields if they exist
+        if (result.type) {
+            metaItems += `
+            <div class="meta-item">
+                <span class="meta-label">Type:</span>
+                <span class="meta-badge meta-type">${escapeHtml(result.type)}</span>
+            </div>`;
+        }
+        
+        if (result.page_number) {
+            metaItems += `
+            <div class="meta-item">
+                <span class="meta-label">Page:</span>
+                <span class="meta-badge meta-page">${escapeHtml(result.page_number)}</span>
+            </div>`;
+        }
+        
+        if (result.header) {
+            metaItems += `
+            <div class="meta-item">
+                <span class="meta-label">Section:</span>
+                <span class="meta-header">${escapeHtml(result.header)}</span>
+            </div>`;
+        }
+        
         resultDiv.innerHTML = `
             <div class="result-header">
                 <div class="result-title">${result.rank}. ${escapeHtml(result.document)}</div>
@@ -184,18 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             
             <div class="result-meta">
-                <div class="meta-item">
-                    <span class="meta-label">File:</span>
-                    <span>${escapeHtml(result.filename)}</span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Chunk ID:</span>
-                    <span>${escapeHtml(result.chunk_id)}</span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Model:</span>
-                    <span>${escapeHtml(result.embedding_model)}</span>
-                </div>
+                ${metaItems}
             </div>
             
             <div class="result-content">

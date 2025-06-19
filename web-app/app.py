@@ -165,6 +165,9 @@ def search():
                 'document': result['document'],
                 'filename': result['filename'],
                 'chunk_id': result['chunk_id'],
+                'type': result.get('type'),
+                'page_number': result.get('page_number'),
+                'header': result.get('header'),
                 'similarity_score': round(result['similarity_score'], 3),
                 'embedding_model': result['embedding_model'],
                 'content': result['content']

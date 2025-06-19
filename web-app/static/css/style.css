@@ -368,8 +368,8 @@ textarea.form-control {
 
 .result-meta {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px 15px;
     margin-bottom: 15px;
     font-size: 0.9rem;
     color: #7f8c8d;
@@ -418,6 +418,38 @@ textarea.form-control {
     border-left: 4px solid #27ae60;
     margin-bottom: 20px;
     font-weight: 500;
+}
+
+/* New metadata styling */
+.meta-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.meta-type {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.meta-page {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #e1bee7;
+}
+
+.meta-header {
+    font-weight: 600;
+    color: #2c3e50;
+    background-color: #ecf0f1;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border-left: 3px solid #3498db;
 }
 
 /* Responsive design */

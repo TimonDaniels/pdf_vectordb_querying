@@ -382,6 +382,9 @@ class VectorStore:
                     "filename": doc.metadata.get("filename", "Unknown"),
                     "source": doc.metadata.get("source", "Unknown"),
                     "chunk_id": doc.metadata.get("chunk_id", "Unknown"),
+                    "type": doc.metadata.get("type"),
+                    "page_number": doc.metadata.get("page_number"),
+                    "header": doc.metadata.get("header"),
                     "similarity_score": score,
                     "embedding_model": model_name
                 })
@@ -449,14 +452,15 @@ class VectorStore:
             # Clear all caches
             self.clear_cache()
 
-    def from_chunk_files(self, file_patterns: List[str], batch_size: int = 500):
+    def from_chunk_files(self, data_folder: str, file_patterns: List[str], batch_size: int = 500):
         if self.current_embedding_model is None:
             raise ValueError("No embedding model set. Call set_embedding_model() first.")
         
         chunk_files = []
         for pattern in file_patterns:
             # Combine data folder with pattern
-            matching_files = glob.glob(pattern)
+            full_pattern = os.path.join(data_folder, pattern)
+            matching_files = glob.glob(full_pattern)
             chunk_files.extend(matching_files)
         
         # Remove duplicates while preserving order
@@ -486,12 +490,14 @@ class VectorStore:
                     
                     # Create metadata from chunk information
                     metadata = {
-                        'source': doc_name,
+                        'document': doc_name,          # Party/document name
+                        'filename': filename,          # Just the filename, not full path
+                        'source': doc_name,           # Same as document for backward compatibility
+                        'file_path': file_path,       # Full path for reference
+                        'page_number': chunk.get('page_number'),
                         'chunk_id': chunk.get('chunk_id'),
                         'type': chunk.get('type'),
-                        'page_number': chunk.get('page_number'),
-                        'header': chunk.get('header'),
-                        'file_path': file_path
+                        'header': chunk.get('header')
                     }
                     
                     # Remove None values from metadata
