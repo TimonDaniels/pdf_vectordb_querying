@@ -448,3 +448,100 @@ class VectorStore:
             
             # Clear all caches
             self.clear_cache()
+
+    def from_chunk_files(self, file_patterns: List[str], batch_size: int = 500):
+        if self.current_embedding_model is None:
+            raise ValueError("No embedding model set. Call set_embedding_model() first.")
+        
+        chunk_files = []
+        for pattern in file_patterns:
+            # Combine data folder with pattern
+            matching_files = glob.glob(pattern)
+            chunk_files.extend(matching_files)
+        
+        # Remove duplicates while preserving order
+        chunk_files = list(dict.fromkeys(chunk_files))
+        
+        if not chunk_files:
+            raise FileNotFoundError(f"No chunk files found matching patterns: {file_patterns}")
+        
+        documents = []
+        
+        for file_path in chunk_files:
+            # Extract document name from filename
+            filename = os.path.basename(file_path)
+            # Try to extract doc name by splitting on common patterns
+            if '_chunk_' in filename:
+                doc_name = filename.split('_chunk_')[0]
+            else:
+                doc_name = os.path.splitext(filename)[0]
+            
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    chunks_data = json.load(f)
+                
+                # Convert each chunk to a Document
+                for chunk in chunks_data:
+                    content = chunk.get('content', '')
+                    
+                    # Create metadata from chunk information
+                    metadata = {
+                        'source': doc_name,
+                        'chunk_id': chunk.get('chunk_id'),
+                        'type': chunk.get('type'),
+                        'page_number': chunk.get('page_number'),
+                        'header': chunk.get('header'),
+                        'file_path': file_path
+                    }
+                    
+                    # Remove None values from metadata
+                    metadata = {k: v for k, v in metadata.items() if v is not None}
+                    
+                    doc = Document(page_content=content, metadata=metadata)
+                    documents.append(doc)
+                    
+            except json.JSONDecodeError as e:
+                print(f"Warning: Could not parse JSON in file {file_path}: {e}")
+                continue
+            except Exception as e:
+                print(f"Warning: Error processing file {file_path}: {e}")
+                continue
+        
+        if not documents:
+            raise ValueError("No valid documents were created from the chunk files")
+        
+        print(f"Loaded {len(documents)} chunks from {len(chunk_files)} files")
+        
+        # Get the database directory for the current model
+        db_dir = self.get_database_directory(self.current_embedding_model)
+        
+        # Create the database directory
+        os.makedirs(db_dir, exist_ok=True)
+        
+        # Create Chroma vectorstore in batches
+        vectorstore = None
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i + batch_size]
+            print(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1} ({len(batch)} documents)...")
+            
+            if vectorstore is None:
+                # Create the initial vectorstore with the first batch
+                vectorstore = Chroma.from_documents(
+                    documents=batch,
+                    embedding=self.current_embeddings,
+                    persist_directory=db_dir,
+                    collection_name="political_programs"
+                )
+                print(f"Initial vector store created with {len(batch)} documents")
+            else:
+                # Add subsequent batches to the existing vectorstore
+                vectorstore.add_documents(batch)
+                print(f"Added {len(batch)} documents to vector store")
+        
+        # Save metadata
+        self.save_database_metadata(self.current_embedding_model, len(documents))
+        
+        # Cache the vectorstore for future use
+        self._vectorstore_cache[self.current_embedding_model] = vectorstore
+        
+        print(f"Successfully loaded {len(documents)} chunks from JSON files into {self.current_embedding_model} database")
