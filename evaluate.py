@@ -44,17 +44,15 @@ class RAGEvaluator:
             model_name=self.embedding_model, 
             k=k
         )
-        # Extract just the content for TruLens compatibility
-        return [doc["content"] for doc in results]
+        return results
     
     @instrument
     def synthesize(self, opinion: str, context_docs: List[str]) -> str:
         """Generate synthesis from retrieved context."""
-        # Convert back to the format expected by synthesizer
-        formatted_results = [{"content": doc} for doc in context_docs]
+        # Use stored full results with metadata
         return self.synthesizer.synthesize_party_opinion_fit(
             opinion=opinion,
-            query_results=formatted_results
+            query_results=context_docs,
         )
     
     @instrument
@@ -78,13 +76,14 @@ def setup_feedback_functions():
     provider = TruOpenAI()
     
     # Groundedness: How well is the answer supported by retrieved context
+    # Use standard TruLens approach - it will automatically extract content from strings
     f_groundedness = (
         Feedback(provider.groundedness_measure_with_cot_reasons, name="Groundedness")
-        .on(Select.RecordCalls.retrieve.rets.collect())
+        .on(Select.RecordCalls.retrieve.rets[:].content)  # Gets the list of strings returned by retrieve
         .on_output()
     )
     
-    # Answer Relevance: How well does the answer address the opinion/question
+    # Answer Relevance: How well does the answer address the opinion/question  
     f_answer_relevance = (
         Feedback(provider.relevance_with_cot_reasons, name="Answer Relevance")
         .on_input()
@@ -95,7 +94,7 @@ def setup_feedback_functions():
     f_context_relevance = (
         Feedback(provider.context_relevance_with_cot_reasons, name="Context Relevance")
         .on_input()
-        .on(Select.RecordCalls.retrieve.rets[:])
+        .on(Select.RecordCalls.retrieve.rets[:].content)  # Gets each string in the list
         .aggregate(np.mean)
     )
     

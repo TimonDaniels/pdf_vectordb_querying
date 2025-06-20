@@ -47,7 +47,7 @@ class OpinionSynthesizer:
             Synthesized explanation as a string
         """
         # Extract party names from query results
-        parties = self._extract_parties_from_results(query_results)
+        parties = sorted(list(set([result['source'] for result in query_results])))
         
         # Prepare context from query results
         context = self._prepare_context(query_results, max_context_length)
@@ -120,24 +120,7 @@ class OpinionSynthesizer:
         
         return "".join(context_parts)
     
-    def _extract_parties_from_results(self, query_results: List[Dict[str, Any]]) -> List[str]:
-        """
-        Extract party names from query results metadata.
-        
-        Args:
-            query_results: List of documents with content and metadata
-            
-        Returns:
-            List of unique party names found in the results
-        """
-        parties = set()
-        
-        for result in query_results:
-            metadata = result.get('metadata', {})
-            source = metadata['source']
-            parties.add(source)
-        return sorted(list(parties))
-    
+
     def _create_synthesis_prompt(self, opinion: str, parties: List[str], context: str) -> str:
         """
         Create the synthesis prompt for the OpenAI model.
@@ -248,4 +231,7 @@ if __name__ == "__main__":
     
     explanation = synthesize_opinion_fit(opinion, example_results)
     print(f"Analysis of how the parties fit the opinion '{opinion}':")
+   
+   
+   
     print(explanation)
