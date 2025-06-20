@@ -3,9 +3,14 @@ Example usage of the PDF processor system with multiple embedding models.
 This script shows how to use the PDFProcessor class for different tasks.
 """
 
-from chunker import RecursiveTextChunker
-from pdf_parser import LayoutPDFParser, PyPDFParser
-from vectorstore import VectorStore
+import os
+from dotenv import load_dotenv
+from src.chunker import RecursiveTextChunker
+from src.pdf_parser import LayoutPDFParser
+from src.utils import find_project_root
+from src.vectorstore import VectorStore
+
+load_dotenv(os.path.join(find_project_root(), ".env.local"))
 
 
 def example_usage():

@@ -1,6 +1,11 @@
-import os 
-from test_chunking import parse_json_text
-import json
+
+
+import os
+
+from dotenv import load_dotenv
+from src.utils import find_project_root
+
+load_dotenv(os.path.join(find_project_root(), ".env.local"))
 
 
 def main():

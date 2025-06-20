@@ -9,10 +9,6 @@ import os
 import time
 from typing import Dict, Optional
 from openai import OpenAI
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv('../.env.local')
 
 
 class QueryExpander:

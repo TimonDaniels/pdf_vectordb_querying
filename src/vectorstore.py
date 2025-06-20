@@ -9,18 +9,12 @@ import glob
 import json
 from typing import List, Dict, Optional
 from datetime import datetime
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma.vectorstores import Chroma
 from langchain_community.embeddings import SentenceTransformerEmbeddings, OpenAIEmbeddings, HuggingFaceEmbeddings
 from langchain.schema import Document
-from dotenv import load_dotenv
 
-from pdf_parser import PDFParser
-from chunker import TextChunker
-
-# Load environment variables from .env.local file
-load_dotenv('.env.local')
-
+from src.pdf_parser import PDFParser
+from src.chunker import TextChunker
 
 class VectorStore:
     """

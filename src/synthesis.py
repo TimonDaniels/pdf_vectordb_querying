@@ -6,10 +6,6 @@ Provides OpenAI-powered synthesis of explanations based on opinions and query re
 import os
 from typing import List, Dict, Optional, Any
 from openai import OpenAI
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv('.env.local')
 
 
 class OpinionSynthesizer:

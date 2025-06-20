@@ -3,34 +3,33 @@ Flask web application for PDF vector search functionality.
 This provides a web interface for searching through PDF documents using multiple embedding models.
 """
 
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
 import sys
 import os
 import threading
-import time
 
 # Add parent directory to path to import pdf_processor
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
-from vectorstore import VectorStore
-from pdf_parser import PDFParser, PyPDFParser
-from chunker import TextChunker, RecursiveTextChunker
-from query_expander import QueryExpander
-from synthesis import synthesize_opinion_fit
+from src.vectorstore import VectorStore
+from src.pdf_parser import PDFParser, PyPDFParser
+from src.chunker import TextChunker, RecursiveTextChunker
+from src.query_expander import QueryExpander
+from src.synthesis import synthesize_opinion_fit
+from src.utils import find_project_root
+
 
 app = Flask(__name__)
 
 # Initialize the processor globally with correct paths
+load_dotenv(os.path.join(find_project_root(), ".env.local"))
 data_dir = os.path.join(parent_dir, "data")
 chroma_db_dir = os.path.join(parent_dir, "chroma_db")
 processor = VectorStore(pdf_directory=data_dir, base_db_directory=chroma_db_dir)
-
-# Initialize query expander
-query_expander = QueryExpander()
-
-# Track database creation status
-database_creation_status = {}
 creation_lock = threading.Lock()
+query_expander = QueryExpander()
+database_creation_status = {}
 
 
 def create_database_background(model_name: str, parser: PDFParser, chunker: TextChunker):
