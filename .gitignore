@@ -5,6 +5,7 @@ venv\
 # database
 chroma_db/
 chroma_db\
+*.sqlite
 
 # data folder
 data/
