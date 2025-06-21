@@ -97,6 +97,8 @@ class OpinionSynthesizer:
                     source_parts.append(f"Page: {metadata['page']}")
                 if 'chunk' in metadata:
                     source_parts.append(f"Chunk: {metadata['chunk']}")
+                if 'header' in metadata:
+                    source_parts.append(f"Header: {metadata['header']}")
                 source_info = f" [{', '.join(source_parts)}]" if source_parts else ""
             
             entry = f"Document{source_info}:\n{content}\n\n"
@@ -169,28 +171,29 @@ Based on the provided documents, analyze how well {parties_text} align with or f
 
 OPINION: "{opinion}"
 
-Please provide a comprehensive analysis that:
+Please provide a comprehensive and consise analysis that:
 1. Explains how each party's positions, actions, or statements relate to this opinion using the provided context and quote the specific documents
 2. Provides a balanced assessment of the degree of fit for each party and give it a number ranging from 1 to 10, where 1 is no fit and 10 is perfect fit
 3. Keep the response concise but informative, focusing on key points and evidence and use a quote if possible
-4. Compares the parties' positions if multiple parties are present
+4. Add between brackets the header and page number of the document where the information was found, e.g. (Hoofdstuk: "Klimaat", Pagina: 2)
 
 RELEVANT DOCUMENTS:
 {context}
 
-Please structure your response as JSON with the following format:
-```json
-{{
-    {{
-        party_analysis: [
-            {{"party_name": party, "score": 1-10, "explanation": "example explanation", "evidence": "specific quotes or references from documents"}},
-            {{"party_name": party, "score": 1-10, "explanation": "example explanation", "evidence": "specific quotes or references from documents"}}
-        ],
-        "conclusion": "Overall summary of party alignments",
-    }}
-}}
-```         
 """
+        
+# Please structure your response as JSON with the following format:
+# ```json
+# {{
+#     {{
+#         party_analysis: [
+#             {{"party_name": party, "score": 1-10, "explanation": "example explanation", "evidence": "specific quotes or references from documents"}},
+#             {{"party_name": party, "score": 1-10, "explanation": "example explanation", "evidence": "specific quotes or references from documents"}}
+#         ],
+#         "conclusion": "Overall summary of party alignments",
+#     }}
+# }}
+# ```         
         return prompt
     
     def _get_system_prompt(self) -> str:
@@ -203,13 +206,10 @@ Please structure your response as JSON with the following format:
         return """You are an expert political analyst and researcher. Your task is to objectively analyze how well political parties or entities align with given opinions based on provided documentary evidence.
 
 Key guidelines:
-- Be objective and evidence-based in your analysis
+- Be as grounded as possible using the provided documents
 - Cite specific examples and quotes from the provided documents
-- Acknowledge when evidence is limited or contradictory
-- Provide nuanced assessments rather than simple yes/no answers
-- Consider both explicit statements and implicit positions
-- Distinguish between party positions and individual member views when relevant
 - Be clear about the strength of the evidence for your conclusions
+- Acknowledge when evidence is limited or contradictory
 - Answer in Dutch
 """
 
