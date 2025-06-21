@@ -7,6 +7,8 @@ chroma_db/
 chroma_db\
 *.sqlite
 
+# files
+
 # data folder
 data/
 data/semantic_chunks/
